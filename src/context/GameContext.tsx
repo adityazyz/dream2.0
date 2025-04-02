@@ -64,7 +64,7 @@ interface GameContextProps {
 }
 
 const defaultRounds: RoundInfo[] = [
-  { number: 1, questionsPerPair: 1, description: "Round 1: Teams compete in pairs. Each pair will answer 1 question." },
+  { number: 1, questionsPerPair: 2, description: "Round 1: Teams compete in pairs. Each pair will answer 2 questions." },
   { number: 2, questionsPerPair: 2, description: "Round 2: Teams compete in pairs. Each pair will answer 2 questions." },
   { number: 3, questionsPerPair: 3, description: "Final round! Two teams compete for the championship with 3 questions." },
 ];

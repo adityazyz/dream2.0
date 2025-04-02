@@ -18,9 +18,9 @@ interface RoundQuestions {
 }
 
 const REQUIRED_QUESTIONS = {
-  round1: 5, // 5 questions for round 1 (1 per team pair)
-  round2: 4, // 4 questions for round 2 (2 per team pair)
-  round3: 3  // 3 questions for round 3 (3 questions for final)
+  round1: 10, // 10 questions for round 1 (2 per team pair)
+  round2: 4,  // 4 questions for round 2 (2 per team pair)
+  round3: 3   // 3 questions for round 3 (3 questions for final)
 };
 
 const QuestionSetup = ({ onNext }: QuestionSetupProps) => {
@@ -157,7 +157,7 @@ const QuestionSetup = ({ onNext }: QuestionSetupProps) => {
         <div className="text-white text-center">
           <p className="mb-4">Upload a JSON file containing questions for all rounds:</p>
           <ul className="text-sm mb-6">
-            <li>Round 1: {REQUIRED_QUESTIONS.round1} questions (1 per team pair)</li>
+            <li>Round 1: {REQUIRED_QUESTIONS.round1} questions (2 per team pair)</li>
             <li>Round 2: {REQUIRED_QUESTIONS.round2} questions (2 per team pair)</li>
             <li>Round 3: {REQUIRED_QUESTIONS.round3} questions (3 for final)</li>
           </ul>
