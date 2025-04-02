@@ -148,18 +148,28 @@ const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 
   useEffect(() => {
     if (isGameFinished) {
-      const sortedTeams = [...teams].sort((a, b) => b.score - a.score);
-      setStandings(sortedTeams);
-      
-      if (sortedTeams.length >= 2) {
-        const champion = sortedTeams[0];
-        const runnerUp = sortedTeams[1];
+      // Sort teams based on round 3 scores for champion and runner up
+      const round3Teams = teams.filter(team => team.roundScores?.[3] !== undefined)
+        .sort((a, b) => (b.roundScores?.[3] || 0) - (a.roundScores?.[3] || 0));
+
+      // Sort remaining teams based on total score for second runner up
+      const remainingTeams = teams.filter(team => !round3Teams.slice(0, 2).some(t => t.id === team.id))
+        .sort((a, b) => b.score - a.score);
+
+      if (round3Teams.length >= 2 && remainingTeams.length >= 1) {
+        const champion = round3Teams[0];
+        const runnerUp = round3Teams[1];
+        const secondRunnerUp = remainingTeams[0];
         
         setGameResult({
           champion,
           runnerUp,
-          finalRoundScore: `${champion.score} - ${runnerUp.score}`
+          secondRunnerUp,
+          finalRoundScore: `${champion.roundScores?.[3] || 0} - ${runnerUp.roundScores?.[3] || 0}`
         });
+
+        // Update standings to show final positions
+        setStandings([champion, runnerUp, secondRunnerUp, ...remainingTeams.slice(1)]);
       }
     } 
     else {

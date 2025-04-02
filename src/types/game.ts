@@ -1,4 +1,3 @@
-
 export interface Team {
   id: number;
   name: string;
@@ -49,5 +48,6 @@ export interface ExtraQuestion {
 export interface GameResult {
   champion: Team;
   runnerUp: Team;
-  finalRoundScore?: string;
+  secondRunnerUp: Team;
+  finalRoundScore: string;
 }
