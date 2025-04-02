@@ -5,6 +5,12 @@ import { toast as sonnerToast } from 'sonner';
 import { playPopSound, playCelebrationSound } from '@/lib/sounds';
 import { showConfetti } from '@/lib/confetti';
 
+interface RoundQuestions {
+  round1: Question[];
+  round2: Question[];
+  round3: Question[];
+}
+
 interface GameContextProps {
   teams: Team[];
   currentRound: number;
@@ -21,6 +27,7 @@ interface GameContextProps {
   isGameFinished: boolean;
   showFinalResults: boolean;
   gameResult: GameResult | null;
+  customQuestions: RoundQuestions;
   
   addTeam: () => void;
   removeTeam: (id: number) => void;
@@ -53,6 +60,7 @@ interface GameContextProps {
   nextQuestion: () => void;
   
   handleAnswerDrop: (answerId: number, targetTeamId: number) => void;
+  updateCustomQuestions: (questions: RoundQuestions) => void;
 }
 
 const defaultRounds: RoundInfo[] = [
@@ -92,7 +100,15 @@ const createDefaultExtraQuestion = (id: number): ExtraQuestion => {
 
 const GameContext = createContext<GameContextProps | undefined>(undefined);
 
-export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+function useGame() {
+  const context = useContext(GameContext);
+  if (context === undefined) {
+    throw new Error('useGame must be used within a GameProvider');
+  }
+  return context;
+}
+
+const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [currentRound, setCurrentRound] = useState(1);
   const [rounds] = useState<RoundInfo[]>(defaultRounds);
@@ -108,6 +124,11 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isGameFinished, setIsGameFinished] = useState(false);
   const [showFinalResults, setShowFinalResults] = useState(false);
   const [gameResult, setGameResult] = useState<GameResult | null>(null);
+  const [customQuestions, setCustomQuestions] = useState<RoundQuestions>({
+    round1: [],
+    round2: [],
+    round3: []
+  });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -235,7 +256,31 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         team1: {...team1, score: 0},
         team2: {...team2, score: 0}
       });
-      setCurrentQuestion(createDefaultQuestion(1));
+      
+      // Get questions for current round
+      const roundQuestions = customQuestions[`round${currentRound}` as keyof RoundQuestions];
+      const teamsPlayedCount = teams.filter(t => t.hasPlayed).length;
+      const currentPairIndex = Math.floor(teamsPlayedCount / 2);
+      const roundInfo = rounds.find(r => r.number === currentRound);
+      const questionsPerPair = roundInfo?.questionsPerPair || 1;
+      const questionIndex = currentPairIndex * questionsPerPair;
+      
+      if (roundQuestions && roundQuestions.length > questionIndex) {
+        const baseQuestion = roundQuestions[questionIndex];
+        setCurrentQuestion({
+          ...baseQuestion,
+          isRevealed: false,
+          isStriked: false,
+          answers: baseQuestion.answers.map(a => ({
+            ...a,
+            isRevealed: false,
+            isHidden: false
+          }))
+        });
+      } else {
+        setCurrentQuestion(createDefaultQuestion(currentQuestionNumber));
+      }
+      
       setIsQuestionMode(true);
       setCurrentQuestionNumber(1);
       
@@ -252,7 +297,30 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     if (nextNum <= totalQuestions) {
       setCurrentQuestionNumber(nextNum);
-      setCurrentQuestion(createDefaultQuestion(nextNum));
+      
+      // Get questions for current round
+      const roundQuestions = customQuestions[`round${currentRound}` as keyof RoundQuestions];
+      const teamsPlayedCount = teams.filter(t => t.hasPlayed).length;
+      const currentPairIndex = Math.floor((teamsPlayedCount - 2) / 2); // Subtract 2 because the current pair is already marked as played
+      const roundInfo = rounds.find(r => r.number === currentRound);
+      const questionsPerPair = roundInfo?.questionsPerPair || 1;
+      const questionIndex = (currentPairIndex * questionsPerPair) + (nextNum - 1);
+      
+      if (roundQuestions && roundQuestions.length > questionIndex) {
+        const baseQuestion = roundQuestions[questionIndex];
+        setCurrentQuestion({
+          ...baseQuestion,
+          isRevealed: false,
+          isStriked: false,
+          answers: baseQuestion.answers.map(a => ({
+            ...a,
+            isRevealed: false,
+            isHidden: false
+          }))
+        });
+      } else {
+        setCurrentQuestion(createDefaultQuestion(nextNum));
+      }
     } else {
       finishCurrentPair();
     }
@@ -408,20 +476,30 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const finishCurrentPair = () => {
     if (currentPair) {
-      const team1 = teams.find(t => t.id === currentPair.team1.id);
-      const team2 = teams.find(t => t.id === currentPair.team2.id);
-      
-      if (team1 && team2) {
-        setTeams(teams.map(team => {
-          if (team.id === team1.id) {
-            return team;
-          }
-          if (team.id === team2.id) {
-            return team;
-          }
-          return team;
-        }));
-      }
+      // Update the teams array with the final scores from the current pair
+      setTeams(teams.map(team => {
+        if (team.id === currentPair.team1.id) {
+          return {
+            ...team,
+            score: team.score + (currentPair.team1.score - (team.roundScores?.[currentRound] || 0)),
+            roundScores: {
+              ...(team.roundScores || {1: 0, 2: 0, 3: 0}),
+              [currentRound]: (team.roundScores?.[currentRound] || 0) + currentPair.team1.score
+            }
+          };
+        }
+        if (team.id === currentPair.team2.id) {
+          return {
+            ...team,
+            score: team.score + (currentPair.team2.score - (team.roundScores?.[currentRound] || 0)),
+            roundScores: {
+              ...(team.roundScores || {1: 0, 2: 0, 3: 0}),
+              [currentRound]: (team.roundScores?.[currentRound] || 0) + currentPair.team2.score
+            }
+          };
+        }
+        return team;
+      }));
     }
 
     setCurrentPair(null);
@@ -499,19 +577,57 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const handleAnswerDrop = (answerId: number, targetTeamId: number) => {
-    if (currentQuestion && currentPair) {
+    if (currentQuestion) {
       const answer = currentQuestion.answers.find(a => a.id === answerId);
-      
       if (answer && answer.isRevealed && !answer.isHidden) {
-        addPoints(targetTeamId, answer.points);
-        incrementTeamAnswers(targetTeamId);
+        // Update the team's total score and round score
+        setTeams(teams.map(team => {
+          if (team.id === targetTeamId) {
+            return {
+              ...team,
+              score: team.score + answer.points,
+              roundScores: {
+                ...team.roundScores,
+                [currentRound]: (team.roundScores?.[currentRound] || 0) + answer.points
+              }
+            };
+          }
+          return team;
+        }));
+
+        // Update the current pair's scores for UI display
+        if (currentPair) {
+          if (targetTeamId === currentPair.team1.id) {
+            setCurrentPair({
+              ...currentPair,
+              team1: {
+                ...currentPair.team1,
+                score: currentPair.team1.score + answer.points
+              }
+            });
+          } else if (targetTeamId === currentPair.team2.id) {
+            setCurrentPair({
+              ...currentPair,
+              team2: {
+                ...currentPair.team2,
+                score: currentPair.team2.score + answer.points
+              }
+            });
+          }
+        }
         
+        incrementTeamAnswers(targetTeamId);
         hideAnswer(answerId);
         
         sonnerToast.success(`${answer.points} points added to Team ${targetTeamId}`);
         playCelebrationSound();
+        showConfetti(Math.random() * 0.5 + 0.25, Math.random() * 0.3 + 0.3);
       }
     }
+  };
+
+  const updateCustomQuestions = (questions: RoundQuestions) => {
+    setCustomQuestions(questions);
   };
 
   return (
@@ -531,6 +647,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       isGameFinished,
       showFinalResults,
       gameResult,
+      customQuestions,
       addTeam,
       removeTeam,
       updateTeamName,
@@ -555,17 +672,12 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       continueRound,
       startNextRound,
       nextQuestion,
-      handleAnswerDrop
+      handleAnswerDrop,
+      updateCustomQuestions
     }}>
       {children}
     </GameContext.Provider>
   );
 };
 
-export const useGame = () => {
-  const context = useContext(GameContext);
-  if (context === undefined) {
-    throw new Error('useGame must be used within a GameProvider');
-  }
-  return context;
-};
+export { GameProvider, useGame };
