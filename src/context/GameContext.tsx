@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Team, Question, Answer, TeamPair, RoundInfo, ExtraQuestion, GameResult } from '../types/game';
 import { useToast } from "@/components/ui/use-toast";
 import { toast as sonnerToast } from 'sonner';
-import { playPopSound, playCelebrationSound } from '@/lib/sounds';
+import { playPopSound, playCelebrationSound, playWrongSound } from '@/lib/sounds';
 import { showConfetti } from '@/lib/confetti';
 
 interface RoundQuestions {
@@ -339,7 +339,6 @@ const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const revealQuestion = () => {
     if (currentQuestion) {
       setCurrentQuestion({ ...currentQuestion, isRevealed: true, isHidden: false });
-      playPopSound();
     }
   };
 
@@ -352,6 +351,11 @@ const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const strikeQuestion = () => {
     if (currentQuestion) {
       setCurrentQuestion({ ...currentQuestion, isStriked: true });
+      playWrongSound();
+      // Auto-close strike after 1 second
+      setTimeout(() => {
+        setCurrentQuestion(prev => prev ? { ...prev, isStriked: false } : null);
+      }, 1000);
     }
   };
 
